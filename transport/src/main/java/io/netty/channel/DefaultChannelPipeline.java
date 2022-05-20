@@ -93,8 +93,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         this.channel = ObjectUtil.checkNotNull(channel, "channel");
         succeededFuture = new SucceededChannelFuture(channel, null);
         voidPromise =  new VoidChannelPromise(channel, true);
-
+        // TailContext是ChannelInboundHandler类型的
         tail = new TailContext(this);
+        // HeadContext是ChannelInboundHandler类型的
         head = new HeadContext(this);
 
         head.next = tail;
@@ -200,16 +201,18 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         final AbstractChannelHandlerContext newCtx;
         synchronized (this) {
             checkMultiplicity(handler);
-
+            // 将handler包装成ChannelHandlerContext类型,其中ChannelHandlerContext提供了链表的功能
             newCtx = newContext(group, filterName(name, handler), handler);
-
+            //
             addLast0(newCtx);
 
-            // If the registered is false it means that the channel was not registered on an eventLoop yet.
-            // In this case we add the context to the pipeline and add a task that will call
-            // ChannelHandler.handlerAdded(...) once the channel is registered.
+            // 如果registered=false,则表示该channel尚未在eventLoop上注册,
+            // 在这种情况下,将上下文添加到pipeline并添加一个将调用的任务,
+            // 该任务将在channel注册完成后调用ChannelHandler.handlerAdded(),向pileline中动态的添加一个ChannelHandler
             if (!registered) {
                 newCtx.setAddPending();
+                // 添加一个待调用的任务,后续动态的增加或者删除ChannelHandler
+                // 这里added=true,是增加ChannelHandler,后续调用handlerAdded()
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
@@ -367,6 +370,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline addLast(ChannelHandler... handlers) {
+        // executor=null表示此handler在运行时,将使用当前channel的EventLoop
         return addLast(null, handlers);
     }
 
@@ -647,6 +651,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             firstRegistration = false;
             // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
             // that were added before the registration was done.
+            // 对于在channel没有注册到EventLoop前,已经添加到channel中的ChannelHandlers,调用其handlerAdded()方法,继而调用到initChannel()
             callHandlerAddedForAllHandlers();
         }
     }
@@ -1119,7 +1124,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     private void callHandlerCallbackLater(AbstractChannelHandlerContext ctx, boolean added) {
         assert !registered;
-
+        // 待调用的任务(动态的增加或者删除ChannelHandler)
         PendingHandlerCallback task = added ? new PendingHandlerAddedTask(ctx) : new PendingHandlerRemovedTask(ctx);
         PendingHandlerCallback pending = pendingHandlerCallbackHead;
         if (pending == null) {
@@ -1135,12 +1140,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     private void callHandlerAddedInEventLoop(final AbstractChannelHandlerContext newCtx, EventExecutor executor) {
         newCtx.setAddPending();
-        executor.execute(new Runnable() {
-            @Override
-            public void run() {
-                callHandlerAdded0(newCtx);
-            }
-        });
+        executor.execute(() -> callHandlerAdded0(newCtx));
     }
 
     /**
@@ -1329,8 +1329,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
 
         @Override
-        public void bind(
-                ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) {
+        public void bind(ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) {
             unsafe.bind(localAddress, promise);
         }
 

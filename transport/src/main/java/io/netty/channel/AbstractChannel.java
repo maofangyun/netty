@@ -72,6 +72,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         this.parent = parent;
         id = newId();
         unsafe = newUnsafe();
+        // 创建此Channel的PipeLine时,同时会添加入站处理器TailContext和出站处理器HeadContext
         pipeline = newChannelPipeline();
     }
 
@@ -464,28 +465,25 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
-            if (isRegistered()) {
-                promise.setFailure(new IllegalStateException("registered to an event loop already"));
-                return;
-            }
             if (!isCompatible(eventLoop)) {
+                if (isRegistered()) {
+                    promise.setFailure(new IllegalStateException("registered to an event loop already"));
+                    return;
+                }
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
 
             AbstractChannel.this.eventLoop = eventLoop;
-
+            // channel注册时,eventLoop中的thread为null,因为此channel属于的线程还没有启动(只针对启动阶段,运行阶段不一样)
+            // 若当前线程是eventLoop的线程,则直接执行注册逻辑register0()
             if (eventLoop.inEventLoop()) {
                 register0(promise);
-            } else {
+            } else {    // 若当前线程不是eventLoop的线程,则将注册逻辑register0()包装成任务放到eventLoop线程池中执行(eventLoop是单线程的线程池)
                 try {
-                    eventLoop.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            register0(promise);
-                        }
-                    });
+                    // 先将任务放到任务队列,然后启动eventLoop的线程(线程未启动的情况下),eventLoop线程的run()方法会死循环的处理SelectionKey事件和任务队列中的任务
+                    eventLoop.execute(() -> register0(promise));
                 } catch (Throwable t) {
                     logger.warn(
                             "Force-closing a channel whose registration task was not accepted by an event loop: {}",
@@ -505,15 +503,18 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // 真正的channel注册逻辑,需要注意的是,此时注册的关注事件=0,即什么也不关注,因为channel还没有完全启动
                 doRegister();
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                // 链式调用所有PendingHandlerCallback任务,进而调用ChannelHandler处理器的handlerAdded(),用于动态的向pipeline中添加ChannelHandler
                 pipeline.invokeHandlerAddedIfNeeded();
-
+                // 到这一步,channel已经完成注册,将promise中的result属性赋值,会notify所有的等待线程,同时通知所有的listeners
                 safeSetSuccess(promise);
+                // 链式调用所有ChannelHandler处理器的channelRegistered()
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
@@ -525,6 +526,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         // again so that we process inbound data.
                         //
                         // See https://github.com/netty/netty/issues/4805
+                        // 修改为关注指定事件
                         beginRead();
                     }
                 }
@@ -567,12 +569,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             if (!wasActive && isActive()) {
-                invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        pipeline.fireChannelActive();
-                    }
-                });
+                invokeLater(() -> pipeline.fireChannelActive());
             }
 
             safeSetSuccess(promise);
@@ -831,14 +828,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             assertEventLoop();
 
             try {
+                // 修改为关注指定事件
                 doBeginRead();
             } catch (final Exception e) {
-                invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        pipeline.fireExceptionCaught(e);
-                    }
-                });
+                invokeLater(() -> pipeline.fireExceptionCaught(e));
                 close(voidPromise());
             }
         }

@@ -77,15 +77,16 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
     }
 
     @Override
-    public ChannelFuture register(Channel channel) {
-        return register(new DefaultChannelPromise(channel, this));
-    }
-
-    @Override
     public ChannelFuture register(final ChannelPromise promise) {
         ObjectUtil.checkNotNull(promise, "promise");
         promise.channel().unsafe().register(this, promise);
         return promise;
+    }
+
+    @Override
+    public ChannelFuture register(Channel channel) {
+        // Channel注册时,将被包装成一个Promise,方便后续的异步操作
+        return register(new DefaultChannelPromise(channel, this));
     }
 
     @Deprecated

@@ -81,6 +81,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         this.ch = ch;
         this.readInterestOp = readInterestOp;
         try {
+            // 设置为非阻塞模式
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
@@ -377,6 +378,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                // 将SocketChannel(或 ServerSocketChannel) 注册到Selector中,并且可以看到,这里的监听集合设置为了0,也就是什么都不监听
+                // 也就意味着,后续一定有某个地方会需要修改这个selectionKey的监听集合,不然啥都干不了
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
@@ -411,6 +414,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
+            // 修改为关注指定事件
             selectionKey.interestOps(interestOps | readInterestOp);
         }
     }

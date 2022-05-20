@@ -22,8 +22,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
-
     SelectionKey[] keys;
+
     int size;
 
     SelectedSelectionKeySet() {
