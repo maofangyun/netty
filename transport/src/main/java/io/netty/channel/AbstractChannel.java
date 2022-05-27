@@ -510,11 +510,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
-                // 链式调用所有PendingHandlerCallback任务,进而调用ChannelHandler处理器的handlerAdded(),用于动态的向pipeline中添加ChannelHandler
+                // 链式调用所有PendingHandlerCallback任务,进而调用ChannelHandler处理器的handlerAdded(),可用于动态的向pipeline中添加ChannelHandler
                 pipeline.invokeHandlerAddedIfNeeded();
                 // 到这一步,channel已经完成注册,将promise中的result属性赋值,会notify所有的等待线程,同时通知所有的listeners
                 safeSetSuccess(promise);
-                // 链式调用所有ChannelHandler处理器的channelRegistered()
+                // 链式调用所有ChannelHandler处理器的channelRegistered(),是个扩展点
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
@@ -561,6 +561,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             boolean wasActive = isActive();
             try {
+                // 地址绑定的真正逻辑
                 doBind(localAddress);
             } catch (Throwable t) {
                 safeSetFailure(promise, t);

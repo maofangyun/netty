@@ -148,7 +148,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
-
+                // TODO
                 ch.eventLoop().execute(() -> pipeline.addLast(new ServerBootstrapAcceptor(
                         ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs)));
             }

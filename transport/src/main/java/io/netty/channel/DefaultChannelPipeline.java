@@ -95,7 +95,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         voidPromise =  new VoidChannelPromise(channel, true);
         // TailContext是ChannelInboundHandler类型的
         tail = new TailContext(this);
-        // HeadContext是ChannelInboundHandler类型的
+        // HeadContext是ChannelInboundHandler和ChannelInboundHandler类型的
         head = new HeadContext(this);
 
         head.next = tail;
@@ -203,12 +203,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             checkMultiplicity(handler);
             // 将handler包装成ChannelHandlerContext类型,其中ChannelHandlerContext提供了链表的功能
             newCtx = newContext(group, filterName(name, handler), handler);
-            //
+            // 向pipeline中添加一个包装成ctx的ChannelHandler
             addLast0(newCtx);
 
             // 如果registered=false,则表示该channel尚未在eventLoop上注册,
-            // 在这种情况下,将上下文添加到pipeline并添加一个将调用的任务,
-            // 该任务将在channel注册完成后调用ChannelHandler.handlerAdded(),向pileline中动态的添加一个ChannelHandler
+            // 在这种情况下,将ctx添加到pipeline并添加一个将调用的任务,
+            // 该任务将在channel注册完成后调用ChannelHandler.handlerAdded(),向pileline中动态的添加一个ChannelHandler,
+            // 相当于给ChannelHandler添加一个后置处理器(ChannelHandler完成注册之后调用)
             if (!registered) {
                 newCtx.setAddPending();
                 // 添加一个待调用的任务,后续动态的增加或者删除ChannelHandler
@@ -223,6 +224,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 return this;
             }
         }
+        // 调用handlerAdded(),相当于ChannelHandler的后置处理器
         callHandlerAdded0(newCtx);
         return this;
     }
@@ -610,6 +612,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     private void callHandlerAdded0(final AbstractChannelHandlerContext ctx) {
         try {
+            // 调用handlerAdded(),相当于ChannelHandler的后置处理器
             ctx.callHandlerAdded();
         } catch (Throwable t) {
             boolean removed = false;
@@ -651,7 +654,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             firstRegistration = false;
             // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
             // that were added before the registration was done.
-            // 对于在channel没有注册到EventLoop前,已经添加到channel中的ChannelHandlers,调用其handlerAdded()方法,继而调用到initChannel()
+            // 对于channel没有注册到EventLoop前,已经添加到channel中的ChannelHandlers,调用其handlerAdded()方法,继而调用到initChannel()
             callHandlerAddedForAllHandlers();
         }
     }
@@ -1459,6 +1462,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         void execute() {
             EventExecutor executor = ctx.executor();
             if (executor.inEventLoop()) {
+                // 调用handlerAdded(),相当于ChannelHandler的后置处理器
                 callHandlerAdded0(ctx);
             } else {
                 try {

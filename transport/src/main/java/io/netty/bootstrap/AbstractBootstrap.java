@@ -271,15 +271,18 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
         // 创建并初始化channel,并注册连接事件OP_ACCEPT=16到Selector中?
+        // 开始注册的是事件0,在后面的doBind0()方法中变更为连接事件OP_ACCEPT=16
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
         }
         // regFuture.isDone()用来判断channel是否完成注册
+        // isDone()和isSuccess()的区别:如果执行出现了异常,isDone()返回true,isSuccess()返回false
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            // 真正的绑定逻辑
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
@@ -295,7 +298,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                     // Registration was successful, so set the correct executor to use.
                     // See https://github.com/netty/netty/issues/2586
                     promise.registered();
-
+                    // 真正的绑定逻辑,需要等到channel完成注册之后才会调用
                     doBind0(regFuture, channel, localAddress, promise);
                 }
             });
@@ -353,7 +356,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
         channel.eventLoop().execute(() -> {
+            // 判断channel是否已经注册成功
             if (regFuture.isSuccess()) {
+                // channel注册成功之后,进行地址的绑定操作
                 channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
             } else {
                 promise.setFailure(regFuture.cause());
