@@ -35,9 +35,6 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
      */
     public EchoClientHandler() {
         firstMessage = Unpooled.wrappedBuffer("mfy".getBytes());
-//        for (int i = 0; i < firstMessage.capacity(); i ++) {
-//            firstMessage.writeByte((byte) i);
-//        }
     }
 
     @Override

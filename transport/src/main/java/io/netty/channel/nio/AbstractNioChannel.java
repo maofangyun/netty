@@ -54,12 +54,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     protected final int readInterestOp;
     volatile SelectionKey selectionKey;
     boolean readPending;
-    private final Runnable clearReadPendingRunnable = new Runnable() {
-        @Override
-        public void run() {
-            clearReadPending0();
-        }
-    };
+    private final Runnable clearReadPendingRunnable = () -> clearReadPending0();
 
     /**
      * The future of the current connection attempt.  If not null, subsequent

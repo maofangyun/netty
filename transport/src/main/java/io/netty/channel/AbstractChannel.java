@@ -568,11 +568,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 closeIfClosed();
                 return;
             }
-
+            // 判断是否已经激活,即绑定成功
             if (!wasActive && isActive()) {
+                // 从HeadContext开始遍历所有的入站ChannelHandler,调用各自的channelActive()方法
                 invokeLater(() -> pipeline.fireChannelActive());
             }
-
+            // TODO 为什么还要调用一次safeSetSuccess(),之前已经在register0()方法中调用过了
             safeSetSuccess(promise);
         }
 

@@ -178,12 +178,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         if (executor.inEventLoop()) {
             next.invokeChannelUnregistered();
         } else {
-            executor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    next.invokeChannelUnregistered();
-                }
-            });
+            executor.execute(() -> next.invokeChannelUnregistered());
         }
     }
 
@@ -210,12 +205,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         if (executor.inEventLoop()) {
             next.invokeChannelActive();
         } else {
-            executor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    next.invokeChannelActive();
-                }
-            });
+            executor.execute(() -> next.invokeChannelActive());
         }
     }
 
@@ -242,12 +232,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         if (executor.inEventLoop()) {
             next.invokeChannelInactive();
         } else {
-            executor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    next.invokeChannelInactive();
-                }
-            });
+            executor.execute(() -> next.invokeChannelInactive());
         }
     }
 
@@ -276,12 +261,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             next.invokeExceptionCaught(cause);
         } else {
             try {
-                executor.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        next.invokeExceptionCaught(cause);
-                    }
-                });
+                executor.execute(() -> next.invokeExceptionCaught(cause));
             } catch (Throwable t) {
                 if (logger.isWarnEnabled()) {
                     logger.warn("Failed to submit an exceptionCaught() event.", t);
@@ -326,12 +306,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         if (executor.inEventLoop()) {
             next.invokeUserEventTriggered(event);
         } else {
-            executor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    next.invokeUserEventTriggered(event);
-                }
-            });
+            executor.execute(() -> next.invokeUserEventTriggered(event));
         }
     }
 
@@ -474,10 +449,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             // cancelled
             return promise;
         }
-        // 查找第一个出站的ChannelHandlerContext,其实就是HeadContext
+        // 从当前ctx开始查找,查找到第一个出站的ChannelHandlerContext
+        // 自有HeadContext重写了bind()方法,其他的出站Channel只是调用AbstractChannelHandlerContext的bind()方法,
+        // 依次向前遍历找到HeadContext,因此bind操作的核心逻辑在HeadContext的bind()方法中
+        // 采用这种方式,而不是直接调用HeadContext.bind()的原因:方便自定义的ChannelHandler在bind操作时,做扩展
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_BIND);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
+            // 调用每个查找出来的ChannelHandler的bind()方法
             next.invokeBind(localAddress, promise);
         } else {
             safeExecute(executor, () -> next.invokeBind(localAddress, promise), promise, null, false);
@@ -488,6 +467,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
         if (invokeHandler()) {
             try {
+                // 调用bind()方法,核心就在HeadContext上
                 ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
             } catch (Throwable t) {
                 notifyOutboundHandlerException(t, promise);

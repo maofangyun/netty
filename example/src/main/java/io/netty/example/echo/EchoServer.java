@@ -58,7 +58,8 @@ public final class EchoServer {
              .channel(NioServerSocketChannel.class)
              .option(ChannelOption.SO_BACKLOG, 100)
              .handler(new LoggingHandler(LogLevel.INFO))
-             // ChannelInitializer用来动态的向channel中添加ChannelHandler
+             // childHandler用于向新创建的channel中添加ChannelHandler
+             // ChannelInitializer类型的ChannelHandler在调用initChannel()之后,都会被此pipeline中移除
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) {

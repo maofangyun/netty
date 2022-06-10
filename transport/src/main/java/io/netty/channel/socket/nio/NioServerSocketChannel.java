@@ -67,14 +67,14 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         }
     }
 
-    private final ServerSocketChannelConfig config;
-
     /**
      * Create a new instance
      */
     public NioServerSocketChannel() {
         this(DEFAULT_SELECTOR_PROVIDER);
     }
+
+    private final ServerSocketChannelConfig config;
 
     /**
      * Create a new instance using the given {@link SelectorProvider}.
@@ -153,10 +153,12 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
+        // 通过ServerSocketChannel.accept()方法创建当前连接对应的SocketChannel
         SocketChannel ch = SocketUtils.accept(javaChannel());
 
         try {
             if (ch != null) {
+                // 直接new出来NioSocketChannel,包含了JDK的SocketChannel和Netty的ServerSocketChannel
                 buf.add(new NioSocketChannel(this, ch));
                 return 1;
             }

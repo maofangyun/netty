@@ -81,7 +81,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         for (int i = 0; i < nThreads; i ++) {
             boolean success = false;
             try {
-                // 按照设定的线程数,创建相同数量的EventLoop实例对象
+                // 按照设定的线程数,创建相同数量的EventLoop实例对象,每一个EventLoop都是一个单线程的线程池(netty自己实现的)
                 children[i] = newChild(executor, args);
                 success = true;
             } catch (Exception e) {

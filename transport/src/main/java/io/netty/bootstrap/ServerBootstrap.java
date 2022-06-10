@@ -134,11 +134,13 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         // 这是NioServerSocketChannel的Pipeline
         ChannelPipeline p = channel.pipeline();
 
+        // 传入ServerBootstrapAcceptor中,当新的连接到来时并创建channel时,将从currentChildGroup中选择一个EventLoop和channel进行绑定
         final EventLoopGroup currentChildGroup = childGroup;
+        // 传入ServerBootstrapAcceptor中,当新的连接到来时并创建channel时,childHandler将被添加到此channel的pipeline中
         final ChannelHandler currentChildHandler = childHandler;
         final Entry<ChannelOption<?>, Object>[] currentChildOptions = newOptionsArray(childOptions);
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = newAttributesArray(childAttrs);
-
+        // ChannelInitializer类型的ChannelHandler在调用initChannel()之后,都会被此pipeline中移除
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) {
@@ -201,10 +203,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             final Channel child = (Channel) msg;
-
+            // 向新的连接SocketChannel添加统一的ChannelHandler
             child.pipeline().addLast(childHandler);
-
+            // 向新的连接SocketChannel添加统一的TCP参数
             setChannelOptions(child, childOptions, logger);
+            // 向新的连接SocketChannel添加统一的共享参数
             setAttributes(child, childAttrs);
 
             try {

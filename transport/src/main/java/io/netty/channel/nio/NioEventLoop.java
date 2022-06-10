@@ -209,47 +209,44 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         final Class<?> selectorImplClass = (Class<?>) maybeSelectorImplClass;
         final SelectedSelectionKeySet selectedKeySet = new SelectedSelectionKeySet();
 
-        Object maybeException = AccessController.doPrivileged(new PrivilegedAction<Object>() {
-            @Override
-            public Object run() {
-                try {
-                    Field selectedKeysField = selectorImplClass.getDeclaredField("selectedKeys");
-                    Field publicSelectedKeysField = selectorImplClass.getDeclaredField("publicSelectedKeys");
+        Object maybeException = AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
+            try {
+                Field selectedKeysField = selectorImplClass.getDeclaredField("selectedKeys");
+                Field publicSelectedKeysField = selectorImplClass.getDeclaredField("publicSelectedKeys");
 
-                    if (PlatformDependent.javaVersion() >= 9 && PlatformDependent.hasUnsafe()) {
-                        // Let us try to use sun.misc.Unsafe to replace the SelectionKeySet.
-                        // This allows us to also do this in Java9+ without any extra flags.
-                        long selectedKeysFieldOffset = PlatformDependent.objectFieldOffset(selectedKeysField);
-                        long publicSelectedKeysFieldOffset =
-                                PlatformDependent.objectFieldOffset(publicSelectedKeysField);
+                if (PlatformDependent.javaVersion() >= 9 && PlatformDependent.hasUnsafe()) {
+                    // Let us try to use sun.misc.Unsafe to replace the SelectionKeySet.
+                    // This allows us to also do this in Java9+ without any extra flags.
+                    long selectedKeysFieldOffset = PlatformDependent.objectFieldOffset(selectedKeysField);
+                    long publicSelectedKeysFieldOffset =
+                            PlatformDependent.objectFieldOffset(publicSelectedKeysField);
 
-                        if (selectedKeysFieldOffset != -1 && publicSelectedKeysFieldOffset != -1) {
-                            PlatformDependent.putObject(
-                                    unwrappedSelector, selectedKeysFieldOffset, selectedKeySet);
-                            PlatformDependent.putObject(
-                                    unwrappedSelector, publicSelectedKeysFieldOffset, selectedKeySet);
-                            return null;
-                        }
-                        // We could not retrieve the offset, lets try reflection as last-resort.
+                    if (selectedKeysFieldOffset != -1 && publicSelectedKeysFieldOffset != -1) {
+                        PlatformDependent.putObject(
+                                unwrappedSelector, selectedKeysFieldOffset, selectedKeySet);
+                        PlatformDependent.putObject(
+                                unwrappedSelector, publicSelectedKeysFieldOffset, selectedKeySet);
+                        return null;
                     }
-
-                    Throwable cause = ReflectionUtil.trySetAccessible(selectedKeysField, true);
-                    if (cause != null) {
-                        return cause;
-                    }
-                    cause = ReflectionUtil.trySetAccessible(publicSelectedKeysField, true);
-                    if (cause != null) {
-                        return cause;
-                    }
-
-                    selectedKeysField.set(unwrappedSelector, selectedKeySet);
-                    publicSelectedKeysField.set(unwrappedSelector, selectedKeySet);
-                    return null;
-                } catch (NoSuchFieldException e) {
-                    return e;
-                } catch (IllegalAccessException e) {
-                    return e;
+                    // We could not retrieve the offset, lets try reflection as last-resort.
                 }
+
+                Throwable cause = ReflectionUtil.trySetAccessible(selectedKeysField, true);
+                if (cause != null) {
+                    return cause;
+                }
+                cause = ReflectionUtil.trySetAccessible(publicSelectedKeysField, true);
+                if (cause != null) {
+                    return cause;
+                }
+
+                selectedKeysField.set(unwrappedSelector, selectedKeySet);
+                publicSelectedKeysField.set(unwrappedSelector, selectedKeySet);
+                return null;
+            } catch (NoSuchFieldException e) {
+                return e;
+            } catch (IllegalAccessException e) {
+                return e;
             }
         });
 
@@ -651,7 +648,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             // null out entry in the array to allow to have it GC'ed once the Channel close
             // See https://github.com/netty/netty/issues/2363
             selectedKeys.keys[i] = null;
-
+            // 从SelectionKey中获取附加的实例对象,ACCEPT=16的实例对象是NioServerSocketChannel,
+            // 其他的都是SocketChannel?
             final Object a = k.attachment();
 
             if (a instanceof AbstractNioChannel) {

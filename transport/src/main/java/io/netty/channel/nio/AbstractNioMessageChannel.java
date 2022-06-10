@@ -75,7 +75,9 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             Throwable exception = null;
             try {
                 try {
+                    // 循环原因:多个连接同时到来?
                     do {
+                        // 创建出NioSocketChannel,并放到readBuf中
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
@@ -94,6 +96,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    // 遍历调用ChannelHandler的channelRead()方法,此处的pipeline属于NioServerSocketChannel
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
                 readBuf.clear();
