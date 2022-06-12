@@ -573,7 +573,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 // 从HeadContext开始遍历所有的入站ChannelHandler,调用各自的channelActive()方法
                 invokeLater(() -> pipeline.fireChannelActive());
             }
-            // TODO 为什么还要调用一次safeSetSuccess(),之前已经在register0()方法中调用过了
+            // 为什么还要调用一次safeSetSuccess(),之前已经在register0()方法中调用过了
+            // 因为promise实例对象已经变了,之前的promise是用来判断channel是否已经注册,现在的promised是用来判断channel是否已经绑定
             safeSetSuccess(promise);
         }
 

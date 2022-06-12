@@ -450,13 +450,13 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             return promise;
         }
         // 从当前ctx开始查找,查找到第一个出站的ChannelHandlerContext
-        // 自有HeadContext重写了bind()方法,其他的出站Channel只是调用AbstractChannelHandlerContext的bind()方法,
+        // 只有HeadContext重写了bind()方法,其他的出站Channel只是调用AbstractChannelHandlerContext的bind()方法,
         // 依次向前遍历找到HeadContext,因此bind操作的核心逻辑在HeadContext的bind()方法中
         // 采用这种方式,而不是直接调用HeadContext.bind()的原因:方便自定义的ChannelHandler在bind操作时,做扩展
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_BIND);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
-            // 调用每个查找出来的ChannelHandler的bind()方法
+            // 调用每个查找出来的ChannelHandlerContext的bind()方法
             next.invokeBind(localAddress, promise);
         } else {
             safeExecute(executor, () -> next.invokeBind(localAddress, promise), promise, null, false);

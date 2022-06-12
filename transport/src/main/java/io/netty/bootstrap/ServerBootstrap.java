@@ -191,12 +191,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             // not be able to load the class because of the file limit it already reached.
             //
             // See https://github.com/netty/netty/issues/1328
-            enableAutoReadTask = new Runnable() {
-                @Override
-                public void run() {
-                    channel.config().setAutoRead(true);
-                }
-            };
+            enableAutoReadTask = () -> channel.config().setAutoRead(true);
         }
 
         @Override
