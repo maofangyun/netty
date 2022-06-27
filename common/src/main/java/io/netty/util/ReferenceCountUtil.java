@@ -87,6 +87,7 @@ public final class ReferenceCountUtil {
      */
     public static boolean release(Object msg) {
         if (msg instanceof ReferenceCounted) {
+            // 缓冲区ByteBuf内存释放
             return ((ReferenceCounted) msg).release();
         }
         return false;

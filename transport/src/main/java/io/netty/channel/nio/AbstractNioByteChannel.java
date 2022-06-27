@@ -139,6 +139,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 return;
             }
             final ChannelPipeline pipeline = pipeline();
+            // 获取ByteBufAllocator,默认是PooledByteBufAllocator
             final ByteBufAllocator allocator = config.getAllocator();
             final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
             allocHandle.reset(config);
@@ -147,6 +148,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             boolean close = false;
             try {
                 do {
+                    // 分配缓冲区大小,但是netty其实并不知道channel过来了多少字节的数据,所以会循环读.
+                    // 如果你数据没有读完，下次select()多路复用器依然会再返回它
                     byteBuf = allocHandle.allocate(allocator);
                     allocHandle.lastBytesRead(doReadBytes(byteBuf));
                     if (allocHandle.lastBytesRead() <= 0) {

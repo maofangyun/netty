@@ -198,14 +198,15 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             final Channel child = (Channel) msg;
-            // 向新的连接SocketChannel添加统一的ChannelHandler
+            // 向新的连接NioSocketChannel添加统一的ChannelHandler
             child.pipeline().addLast(childHandler);
-            // 向新的连接SocketChannel添加统一的TCP参数
+            // 向新的连接NioSocketChannel添加统一的TCP参数
             setChannelOptions(child, childOptions, logger);
-            // 向新的连接SocketChannel添加统一的共享参数
+            // 向新的连接NioSocketChannel添加统一的共享参数
             setAttributes(child, childAttrs);
 
             try {
+                // 将当前连接对应的SocketChannel注册到Selector中
                 childGroup.register(child).addListener((ChannelFutureListener) future -> {
                     if (!future.isSuccess()) {
                         forceClose(child, future.cause());

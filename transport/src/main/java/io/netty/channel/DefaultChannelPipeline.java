@@ -1186,6 +1186,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                     "Discarded inbound message {} that reached at the tail of the pipeline. " +
                             "Please check your pipeline configuration.", msg);
         } finally {
+            // 内存资源释放
             ReferenceCountUtil.release(msg);
         }
     }

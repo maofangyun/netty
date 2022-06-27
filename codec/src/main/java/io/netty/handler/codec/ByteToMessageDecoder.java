@@ -276,6 +276,7 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                 first = cumulation == null;
                 cumulation = cumulator.cumulate(ctx.alloc(),
                         first ? Unpooled.EMPTY_BUFFER : cumulation, (ByteBuf) msg);
+                // 此方法中会循环读取并解码消息
                 callDecode(ctx, cumulation, out);
             } catch (DecoderException e) {
                 throw e;
