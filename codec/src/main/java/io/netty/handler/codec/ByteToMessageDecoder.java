@@ -87,6 +87,9 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
             }
             try {
                 final int required = in.readableBytes();
+                // 判断是否需要重新分配cumulation,而不是扩容cumulation
+                // 判断的条件(或):1. cumulation最大的可写空间 < 待读取数据的大小
+                //              2. cumulation的引用大于1,表示出现问题了(一个缓冲区被多个SocketChannel引用),需要新建一个cumulation
                 if (required > cumulation.maxWritableBytes() ||
                     required > cumulation.maxFastWritableBytes() && cumulation.refCnt() > 1 ||
                     cumulation.isReadOnly()) {
@@ -96,12 +99,15 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                     //   assumed to be shared (e.g. refCnt() > 1) and the reallocation may not be safe.
                     return expandCumulation(alloc, cumulation, in);
                 }
+                // 从in中读取数据到cumulation中,关键在于in.readerIndex(),通过in.readerIndex()判断cumulation是否需要扩容以及扩容多少
                 cumulation.writeBytes(in, in.readerIndex(), required);
+                // 从SocketChannel中读取到的数据in,已经被完全读取到cumulation,所以将in的读指针置到写指针的位置,表示in中已经无数据可读取
                 in.readerIndex(in.writerIndex());
                 return cumulation;
             } finally {
                 // We must release in all cases as otherwise it may produce a leak if writeBytes(...) throw
                 // for whatever release (for example because of OutOfMemoryError)
+                // in中数据已经被读取完毕,直接释放
                 in.release();
             }
         }
@@ -271,12 +277,17 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg instanceof ByteBuf) {
             selfFiredChannelRead = true;
+            // 为什么要使用List来存放解码的消息?
+            // 参考HttpObjectDecoder,因为解码出来的消息,可能会有多个对象需要缓存,所以使用List,保证接口的统一性
             CodecOutputList out = CodecOutputList.newInstance();
             try {
                 first = cumulation == null;
+                // 当存在半包数据时,在下次读取时,累加器cumulator会扩容cumulation,而不是重新分配,
+                // 这样的话,半包数据可直接和下次读取的数据无缝拼接在一起,形成完整的一包数据
+                // 默认使用MERGE_CUMULATOR(内存复制方式),不推荐使用COMPOSITE_CUMULATOR(有内存泄露的风险)
                 cumulation = cumulator.cumulate(ctx.alloc(),
                         first ? Unpooled.EMPTY_BUFFER : cumulation, (ByteBuf) msg);
-                // 此方法中会循环读取并解码消息
+                // 此方法中会循环读取cumulation中的数据,并解码消息
                 callDecode(ctx, cumulation, out);
             } catch (DecoderException e) {
                 throw e;
@@ -284,6 +295,7 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                 throw new DecoderException(e);
             } finally {
                 try {
+                    // 判断cumulation中的数据是不是读取完毕,若读取完毕,直接回收cumulation占用的内存
                     if (cumulation != null && !cumulation.isReadable()) {
                         numReads = 0;
                         cumulation.release();
@@ -429,10 +441,12 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
      */
     protected void callDecode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
         try {
+            // 通过in来判断数据是否读取完毕
             while (in.isReadable()) {
                 final int outSize = out.size();
 
                 if (outSize > 0) {
+                    // 调用各种ChannelHandler的channelRead()方法,完成消息的业务处理
                     fireChannelRead(ctx, out, outSize);
                     out.clear();
 
@@ -447,6 +461,7 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                 }
 
                 int oldInputLength = in.readableBytes();
+                // 解码缓冲区的数据,并将解码完成的数据放入到out集合中
                 decodeRemovalReentryProtection(ctx, in, out);
 
                 // Check if this handler was removed before continuing the loop.
@@ -506,8 +521,10 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
      */
     final void decodeRemovalReentryProtection(ChannelHandlerContext ctx, ByteBuf in, List<Object> out)
             throws Exception {
+        // 设置当前状态为正在解码
         decodeState = STATE_CALLING_CHILD_DECODE;
         try {
+            // 子类都重写了该方法,每种实现都会有自己特殊的解码方式
             decode(ctx, in, out);
         } finally {
             boolean removePending = decodeState == STATE_HANDLER_REMOVED_PENDING;

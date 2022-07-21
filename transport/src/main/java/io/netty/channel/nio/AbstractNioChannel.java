@@ -375,6 +375,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             try {
                 // 将SocketChannel(或 ServerSocketChannel) 注册到Selector中,并且可以看到,这里的监听集合设置为了0,也就是什么都不监听
                 // 也就意味着,后续一定有某个地方会需要修改这个selectionKey的监听集合,不然啥都干不了
+                // 这里为什么要注册0事件,而不是直接绑定端口,注册ACCEPT事件的原因?
+                // https://github.com/netty/netty/issues/1836
+                // 作者本人回答:这是处理潜在的JDK错误而有意为之的东西,因为JDK会将readyOps无缘无故地设置为0,从而导致自旋循环???
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

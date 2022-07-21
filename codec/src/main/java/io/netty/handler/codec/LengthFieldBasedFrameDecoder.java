@@ -407,6 +407,7 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
             }
 
             int actualLengthFieldOffset = in.readerIndex() + lengthFieldOffset;
+            // 通过从in缓存中读取lengthFieldLength长度的数据,解析得到一条完整数据帧的长度frameLength
             frameLength = getUnadjustedFrameLength(in, actualLengthFieldOffset, lengthFieldLength, byteOrder);
 
             if (frameLength < 0) {
@@ -437,7 +438,9 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
         // extract frame
         int readerIndex = in.readerIndex();
         int actualFrameLength = frameLengthInt - initialBytesToStrip;
+        // 从缓冲区in中,按照此包数据的实际长度,读取此条消息
         ByteBuf frame = extractFrame(ctx, in, readerIndex, actualFrameLength);
+        // 当前消息读取完毕之后,移动读指针
         in.readerIndex(readerIndex + actualFrameLength);
         frameLengthInt = -1; // start processing the next frame
         return frame;
