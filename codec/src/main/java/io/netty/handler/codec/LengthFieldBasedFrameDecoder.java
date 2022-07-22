@@ -330,6 +330,7 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
     @Override
     protected final void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+        // 解码消息的核心逻辑
         Object decoded = decode(ctx, in);
         if (decoded != null) {
             out.add(decoded);
@@ -433,14 +434,16 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
         if (initialBytesToStrip > frameLengthInt) {
             failOnFrameLengthLessThanInitialBytesToStrip(in, frameLength, initialBytesToStrip);
         }
+        // 缓冲区in丢弃指定长度的字节数
         in.skipBytes(initialBytesToStrip);
 
         // extract frame
         int readerIndex = in.readerIndex();
+        // 帧的总长度-指定跳过字节长度 = 实际消息的字节数
         int actualFrameLength = frameLengthInt - initialBytesToStrip;
-        // 从缓冲区in中,按照此包数据的实际长度,读取此条消息
+        // 从缓冲区in中,按照此包数据的实际长度,读取此条消息,frame就代表了业务需要处理的数据帧
         ByteBuf frame = extractFrame(ctx, in, readerIndex, actualFrameLength);
-        // 当前消息读取完毕之后,移动读指针
+        // 当前消息读取完毕之后,移动读指针到写指针处,表示缓冲区in已经无数据可读了
         in.readerIndex(readerIndex + actualFrameLength);
         frameLengthInt = -1; // start processing the next frame
         return frame;

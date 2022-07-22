@@ -527,8 +527,12 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
             // 子类都重写了该方法,每种实现都会有自己特殊的解码方式
             decode(ctx, in, out);
         } finally {
+            // 判断当前解码器是否准备移除
             boolean removePending = decodeState == STATE_HANDLER_REMOVED_PENDING;
+            // 还原解码器状态为初始态
             decodeState = STATE_INIT;
+            // 若当前解码器已经准备移除了,调用fireChannelRead()方法,负责任的完成解码消息的业务处理,
+            // 再调用handlerRemoved()方法,将该解码器从ChannelPipeline中移除
             if (removePending) {
                 fireChannelRead(ctx, out, out.size());
                 out.clear();
