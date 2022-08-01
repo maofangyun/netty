@@ -703,6 +703,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             final boolean wasActive = isActive();
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             this.outboundBuffer = null; // Disallow adding any messages and flushes to outboundBuffer.
+            // 此方法会注销SocketChannel在多路复用选择器Selector中注册的事件
             Executor closeExecutor = prepareToClose();
             if (closeExecutor != null) {
                 closeExecutor.execute(new Runnable() {

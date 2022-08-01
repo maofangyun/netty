@@ -125,12 +125,16 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
      */
     protected final Runnable pollScheduledTask(long nanoTime) {
         assert inEventLoop();
-
+        // 从scheduledTaskQueue的头部提取一个周期性的任务
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
+        // 判断周期性任务的执行时间是否已经到了
         if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) {
             return null;
         }
+        // 由于scheduledTask被提取出来且判断为有效任务,即将被执行,故将其从scheduledTaskQueue队列中移除
+        // 在scheduledTask的run()方法执行时,又会被加入到scheduledTaskQueue队列中,从而变成周期性的任务
         scheduledTaskQueue.remove();
+        // 当scheduledTask的周期为0时,才会进行特定的逻辑(似乎能被调用的情况不多)
         scheduledTask.setConsumed();
         return scheduledTask;
     }

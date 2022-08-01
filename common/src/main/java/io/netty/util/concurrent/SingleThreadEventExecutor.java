@@ -280,14 +280,18 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (scheduledTaskQueue == null || scheduledTaskQueue.isEmpty()) {
             return true;
         }
+        // nanoTime(即周期性任务已存在的时间) = 当前时间 - 周期性任务创建时间
         long nanoTime = AbstractScheduledEventExecutor.nanoTime();
         for (;;) {
+            // 提取周期性的任务
             Runnable scheduledTask = pollScheduledTask(nanoTime);
             if (scheduledTask == null) {
                 return true;
             }
+            // 尝试将scheduledTaskQueue提取出来的周期性任务scheduledTask加入到taskQueue中
             if (!taskQueue.offer(scheduledTask)) {
                 // No space left in the task queue add it back to the scheduledTaskQueue so we pick it up again.
+                // 若添加失败,则重新将此周期性任务scheduledTask加入到scheduledTaskQueue中,以便在后续的循环中再次提取
                 scheduledTaskQueue.add((ScheduledFutureTask<?>) scheduledTask);
                 return false;
             }
@@ -371,7 +375,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         boolean ranAtLeastOne = false;
 
         do {
+            // 从scheduledTaskQueue队列中提取周期性的任务,填充到taskQueue中
             fetchedAll = fetchFromScheduledTaskQueue();
+            // 提取taskQueue中的任务,并执行任务的run()方法
             if (runAllTasksFrom(taskQueue)) {
                 ranAtLeastOne = true;
             }
@@ -380,6 +386,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (ranAtLeastOne) {
             lastExecutionTime = ScheduledFutureTask.nanoTime();
         }
+        // 扩展点,任务执行完毕之后的逻辑处理
         afterRunningAllTasks();
         return ranAtLeastOne;
     }
@@ -418,12 +425,16 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * @return {@code true} if at least one task was executed.
      */
     protected final boolean runAllTasksFrom(Queue<Runnable> taskQueue) {
+        // 从taskQueue的头部取出一个任务,当taskQueue为空时,返回的任务为null
         Runnable task = pollTaskFrom(taskQueue);
         if (task == null) {
             return false;
         }
+        // 死循环的执行taskQueue中的任务,直到taskQueue中任务都执行完毕
         for (;;) {
+            // 真正的执行任务,调用任务的run()方法
             safeExecute(task);
+            // 从taskQueue中获取下一个待执行的任务
             task = pollTaskFrom(taskQueue);
             if (task == null) {
                 return true;
@@ -631,6 +642,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         boolean inEventLoop = inEventLoop();
         boolean wakeup;
         int oldState;
+        // 死循环修改线程池的状态
         for (;;) {
             if (isShuttingDown()) {
                 return terminationFuture();
@@ -651,6 +663,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                         wakeup = false;
                 }
             }
+            // 使用CAS,将线程池的状态修改成关闭中
+            // 一旦修改成功,在NioEventLoop的run()方法中,将检测到线程池的状态已经被修改成关闭中,
+            //
             if (STATE_UPDATER.compareAndSet(this, oldState, newState)) {
                 break;
             }

@@ -397,6 +397,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     @Override
     protected void doDeregister() throws Exception {
+        // Channel关闭前,注销在多路复用选择器Selector上的注册事件
         eventLoop().cancel(selectionKey());
     }
 

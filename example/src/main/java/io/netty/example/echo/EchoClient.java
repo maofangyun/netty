@@ -82,6 +82,15 @@ public final class EchoClient {
             f.channel().closeFuture().sync();
         } finally {
             // Shut down the event loop to terminate all threads.
+            // group.shutdownGracefully():
+            //      1. 关闭该group上所有的EventLoop线程绑定的SocketChannel;
+            //      2. 注销该group上所有的EventLoop线程绑定所有SocketChannel在多路复用选择器Selector所有的注册事件;
+            //      3. 完成所有已开始的任务;
+            //      4. 取消所有未开始的任务;
+            //      5. 关闭group上所有的EventLoop线程;
+            // ctx.channel().close():
+            //      1. 关闭指定的某一个SocketChannel;
+            //      2. 注销该SocketChannel在多路复用选择器Selector所有的注册事件;
             group.shutdownGracefully();
         }
     }

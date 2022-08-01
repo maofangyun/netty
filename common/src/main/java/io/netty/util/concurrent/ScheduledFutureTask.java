@@ -165,6 +165,7 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
                 }
                 return;
             }
+            // 判断周期性任务的周期是否为0(即只执行一次)
             if (periodNanos == 0) {
                 if (setUncancellableInternal()) {
                     V result = runTask();
@@ -175,12 +176,15 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
                 if (!isCancelled()) {
                     runTask();
                     if (!executor().isShutdown()) {
+                        // 重新计算deadlineNanos的时间(即周期性任务下次的执行时间)
                         if (periodNanos > 0) {
                             deadlineNanos += periodNanos;
                         } else {
                             deadlineNanos = nanoTime() - periodNanos;
                         }
+                        // 判断周期性任务是否被取消
                         if (!isCancelled()) {
+                            // 重新将此周期性任务加入到scheduledTaskQueue队列中
                             scheduledExecutor().scheduledTaskQueue().add(this);
                         }
                     }

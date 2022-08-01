@@ -49,6 +49,10 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
                              implements io.netty.channel.socket.ServerSocketChannel {
 
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
+    // SelectorProvider.provider()
+    // 1. loadProviderFromProperty()方法是通过JDK的参数-Djava.nio.channels.spi.SelectorProvider=class设置的class来反射构造SelectorProvider
+    // 2. loadProviderAsService从jar中的目录META-INF/services配置文件中找参数//java.nio.channels.spi.SelectorProvider=class设置的第一个class来反射构造SelectorProvider
+    // 3. 最后都没有则调用不同操作系统版本的JDK里自带的sun.nio.ch.DefaultSelectorProvider来创建SelectorProvider
     private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
