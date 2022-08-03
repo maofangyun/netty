@@ -619,6 +619,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             ClosedChannelException closedChannelException =
                     StacklessClosedChannelException.newInstance(AbstractChannel.class, "close(ChannelPromise)");
+            // 关闭操作:
+            // 1. 关闭SocketChannel;
+            // 2. 注销多路复用选择器Selector中注册的事件;
+            // 3. 释放SocketChannel缓冲区的内存;
             close(promise, closedChannelException, closedChannelException, false);
         }
 
@@ -697,42 +701,39 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 }
                 return;
             }
-
+            // 保证关闭的逻辑只会执行一次
             closeInitiated = true;
 
             final boolean wasActive = isActive();
+            // 写出数据时的缓存
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             this.outboundBuffer = null; // Disallow adding any messages and flushes to outboundBuffer.
-            // 此方法会注销SocketChannel在多路复用选择器Selector中注册的事件
+            // 一般情况下,都会返回null
             Executor closeExecutor = prepareToClose();
+            // closeExecutor != null: 一般情况都是false
             if (closeExecutor != null) {
-                closeExecutor.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            // Execute the close.
-                            doClose0(promise);
-                        } finally {
-                            // Call invokeLater so closeAndDeregister is executed in the EventLoop again!
-                            invokeLater(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (outboundBuffer != null) {
-                                        // Fail all the queued messages
-                                        outboundBuffer.failFlushed(cause, notify);
-                                        outboundBuffer.close(closeCause);
-                                    }
-                                    fireChannelInactiveAndDeregister(wasActive);
-                                }
-                            });
-                        }
+                closeExecutor.execute(() -> {
+                    try {
+                        doClose0(promise);
+                    } finally {
+                        // Call invokeLater so closeAndDeregister is executed in the EventLoop again!
+                        invokeLater(() -> {
+                            if (outboundBuffer != null) {
+                                // Fail all the queued messages
+                                outboundBuffer.failFlushed(cause, notify);
+                                outboundBuffer.close(closeCause);
+                            }
+                            fireChannelInactiveAndDeregister(wasActive);
+                        });
                     }
                 });
             } else {
                 try {
                     // Close the channel and fail the queued messages in all cases.
+                    // 真正执行关闭操作的方法,关闭SocketChannel(会注销在多路复用选择器Selector中注册的事件)
                     doClose0(promise);
                 } finally {
+                    // 释放SocketChannel占用的缓冲区内存
                     if (outboundBuffer != null) {
                         // Fail all the queued messages.
                         outboundBuffer.failFlushed(cause, notify);
@@ -740,12 +741,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     }
                 }
                 if (inFlush0) {
-                    invokeLater(new Runnable() {
-                        @Override
-                        public void run() {
-                            fireChannelInactiveAndDeregister(wasActive);
-                        }
-                    });
+                    invokeLater(() -> fireChannelInactiveAndDeregister(wasActive));
                 } else {
                     fireChannelInactiveAndDeregister(wasActive);
                 }
@@ -754,6 +750,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         private void doClose0(ChannelPromise promise) {
             try {
+                // 关闭SocketChannel(会注销在多路复用选择器Selector中注册的事件),
+                // 调用Java原生的Channel的close()方法
                 doClose();
                 closeFuture.setClosed();
                 safeSetSuccess(promise);
@@ -808,11 +806,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 @Override
                 public void run() {
                     try {
+                        // 注销在多路复用选择器Selector上的注册事件
                         doDeregister();
                     } catch (Throwable t) {
                         logger.warn("Unexpected exception occurred while deregistering a channel.", t);
                     } finally {
                         if (fireChannelInactive) {
+                            // 从头遍历ctx链表,调用ChannelHandler的channelInactive()方法
                             pipeline.fireChannelInactive();
                         }
                         // Some transports like local and AIO does not allow the deregistration of
@@ -821,6 +821,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         // if it was registered.
                         if (registered) {
                             registered = false;
+                            // 从头遍历ctx链表,调用ChannelHandler的channelUnregistered()方法
                             pipeline.fireChannelUnregistered();
                         }
                         safeSetSuccess(promise);

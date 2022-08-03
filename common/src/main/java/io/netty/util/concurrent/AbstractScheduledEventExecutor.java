@@ -106,6 +106,8 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
                 scheduledTaskQueue.toArray(new ScheduledFutureTask<?>[0]);
 
         for (ScheduledFutureTask<?> task: scheduledTasks) {
+            // 取消周期性任务,但是并没有从scheduledTaskQueue中移除
+            // mayInterruptIfRunning这个参数,其实并没有用(ˉ▽ˉ；)...
             task.cancelWithoutRemove(false);
         }
 
@@ -127,11 +129,11 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         assert inEventLoop();
         // 从scheduledTaskQueue的头部提取一个周期性的任务
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
-        // 判断周期性任务的执行时间是否已经到了
+        // 判断周期性任务的执行时间是否已经到了,若没有到,直接返回null
         if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) {
             return null;
         }
-        // 由于scheduledTask被提取出来且判断为有效任务,即将被执行,故将其从scheduledTaskQueue队列中移除
+        // 由于scheduledTask被提取出来且判断为有效任务,即将被执行,故将其从scheduledTaskQueue队列中移除,
         // 在scheduledTask的run()方法执行时,又会被加入到scheduledTaskQueue队列中,从而变成周期性的任务
         scheduledTaskQueue.remove();
         // 当scheduledTask的周期为0时,才会进行特定的逻辑(似乎能被调用的情况不多)

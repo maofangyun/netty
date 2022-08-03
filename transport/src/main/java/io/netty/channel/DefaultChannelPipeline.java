@@ -962,6 +962,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelFuture close() {
+        // 关闭操作是一个出站操作,从尾部开始遍历ctx,并调用其ChannelHandler的close()方法
         return tail.close();
     }
 
@@ -1352,6 +1353,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void close(ChannelHandlerContext ctx, ChannelPromise promise) {
+            // 真正的关闭操作,在HeadContext这里
             unsafe.close(promise);
         }
 

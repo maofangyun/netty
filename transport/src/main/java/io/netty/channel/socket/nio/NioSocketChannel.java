@@ -454,6 +454,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         @Override
         protected Executor prepareToClose() {
             try {
+                // SO_LINGER只用在blocking模式下,用于延时关闭
                 if (javaChannel().isOpen() && config().getSoLinger() > 0) {
                     // We need to cancel this key of the channel so we may not end up in a eventloop spin
                     // because we try to read or write until the actual close happens which may be later due

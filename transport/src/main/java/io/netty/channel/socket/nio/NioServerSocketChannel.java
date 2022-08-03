@@ -152,6 +152,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     @Override
     protected void doClose() throws Exception {
+        // 关闭SocketChannel
         javaChannel().close();
     }
 

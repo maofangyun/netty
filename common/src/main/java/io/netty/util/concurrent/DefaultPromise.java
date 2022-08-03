@@ -250,6 +250,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
             while (!isDone()) {
                 incWaiters();
                 try {
+                    // TODO 搞不懂?
                     wait();
                 } finally {
                     decWaiters();
@@ -380,6 +381,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
      */
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
+        // 只有在当前任务执行完毕或者执行异常的情况下,RESULT_UPDATER的CAS修改才会失败
         if (RESULT_UPDATER.compareAndSet(this, null, CANCELLATION_CAUSE_HOLDER)) {
             if (checkNotifyWaiters()) {
                 notifyListeners();

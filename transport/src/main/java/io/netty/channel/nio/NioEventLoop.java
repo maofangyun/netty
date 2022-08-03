@@ -485,7 +485,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                         }
                     } finally {
                         // Ensure we always run tasks.
-                        // 处理队列中的任务,返回true表示已经处理完毕全部的任务
+                        // 处理队列中的任务(包括周期性任务和非周期性任务),返回true表示已经处理完毕全部的任务
                         ranTasks = runAllTasks();
                     }
                 } else if (strategy > 0) {
@@ -523,12 +523,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             } finally {
                 // Always handle shutdown even if the loop processing threw an exception.
                 try {
+                    // 判断线程池的状态是否需要关闭
                     if (isShuttingDown()) {
                         closeAll();
                         if (confirmShutdown()) {
                             // 走到这一步,表示和这个NioEventLoop绑定的SocketChannel已经全部从多路复用选择器中Selector注销了,同时SocketChannel也关闭了,
-                            // 此NioEventLoop上执行的任务也已经全部取消或者运行完毕.
-                            // return之后,此NioEventLoop线程也将会关闭.
+                            // 此NioEventLoop上执行的任务也已经全部取消或者运行完毕,
+                            // return之后,此NioEventLoop线程也将会关闭,
                             // 这就是所谓的优雅关闭.
                             return;
                         }
@@ -765,8 +766,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         for (SelectionKey k: keys) {
             Object a = k.attachment();
             if (a instanceof AbstractNioChannel) {
+                // 把要关闭的Channel加到集合中
                 channels.add((AbstractNioChannel) a);
             } else {
+                // NioTask当前版本似乎没有地方使用
                 k.cancel();
                 @SuppressWarnings("unchecked")
                 NioTask<SelectableChannel> task = (NioTask<SelectableChannel>) a;
@@ -775,6 +778,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
 
         for (AbstractNioChannel ch: channels) {
+            // 调用Channel的unsafe的close()方法来关闭
             ch.unsafe().close(ch.unsafe().voidPromise());
         }
     }

@@ -173,6 +173,7 @@ class PromiseTask<V> extends DefaultPromise<V> implements RunnableFuture<V> {
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
+        // 只有在当前任务执行完毕或者执行异常的情况下,cancel()操作才会返回false
         return clearTaskAfterCompletion(super.cancel(mayInterruptIfRunning), CANCELLED);
     }
 

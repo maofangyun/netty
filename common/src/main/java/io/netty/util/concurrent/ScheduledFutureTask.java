@@ -156,11 +156,17 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
     public void run() {
         assert executor().inEventLoop();
         try {
+            // delayNanos > 0: 说明这个定时任务没有到执行时间
+            // 好像这个判断怎么也进不去啊?
+            // 因为调用run()方法前,会判断当前任务是否到了执行的时间
             if (delayNanos() > 0L) {
                 // Not yet expired, need to add or remove from queue
                 if (isCancelled()) {
+                    // 如果该任务被取消了,从scheduledTaskQueue队列中移除
                     scheduledExecutor().scheduledTaskQueue().removeTyped(this);
                 } else {
+                    // 如果该任务未被取消,由于提取该任务时,此任务已经从scheduledTaskQueue队列中移除,
+                    // 为了保证周期性任务能在指定的时间执行,故重新添加到scheduledTaskQueue队列中
                     scheduledExecutor().scheduleFromEventLoop(this);
                 }
                 return;
@@ -169,11 +175,13 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
             if (periodNanos == 0) {
                 if (setUncancellableInternal()) {
                     V result = runTask();
+                    // CAS修改RESULT_UPDATER为结果result,表示当前任务已经执行成功
                     setSuccessInternal(result);
                 }
             } else {
                 // check if is done as it may was cancelled
                 if (!isCancelled()) {
+                    // 如果是周期性的任务,似乎不用考虑任务的返回结果,也不用设置Promise为成功状态
                     runTask();
                     if (!executor().isShutdown()) {
                         // 重新计算deadlineNanos的时间(即周期性任务下次的执行时间)
@@ -206,8 +214,10 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
      */
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
+        // 取消任务,只有在当前任务执行完毕或者执行异常的情况下,cancel()操作才会返回false
         boolean canceled = super.cancel(mayInterruptIfRunning);
         if (canceled) {
+            // 当前任务取消成功,从scheduledTaskQueue队列中移除
             scheduledExecutor().removeScheduled(this);
         }
         return canceled;

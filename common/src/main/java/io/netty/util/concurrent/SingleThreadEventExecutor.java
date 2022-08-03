@@ -665,7 +665,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             }
             // 使用CAS,将线程池的状态修改成关闭中
             // 一旦修改成功,在NioEventLoop的run()方法中,将检测到线程池的状态已经被修改成关闭中,
-            //
+            // 并尝试关闭当前线程池(所谓的关闭线程池,就是直接return,JVM会自动回收线程)
             if (STATE_UPDATER.compareAndSet(this, oldState, newState)) {
                 break;
             }
@@ -766,7 +766,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (!inEventLoop()) {
             throw new IllegalStateException("must be invoked from an event loop");
         }
-
+        // 取消所有周期性的任务
         cancelScheduledTasks();
 
         if (gracefulShutdownStartTime == 0) {
