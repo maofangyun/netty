@@ -525,7 +525,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 try {
                     // 判断线程池的状态是否需要关闭
                     if (isShuttingDown()) {
+                        // 关闭当前线程绑定的所有SocketChannel,并注销在多路复用选择器Selector注册的事件
                         closeAll();
+                        // 取消周期性的任务,尝试将所有任务执行一遍,确保线程池关闭时,任务要么被取消了,要么被执行了.
+                        // 当符合关闭条件时,返回true,否则,返回false
                         if (confirmShutdown()) {
                             // 走到这一步,表示和这个NioEventLoop绑定的SocketChannel已经全部从多路复用选择器中Selector注销了,同时SocketChannel也关闭了,
                             // 此NioEventLoop上执行的任务也已经全部取消或者运行完毕,

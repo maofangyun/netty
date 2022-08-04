@@ -157,8 +157,8 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
         assert executor().inEventLoop();
         try {
             // delayNanos > 0: 说明这个定时任务没有到执行时间
-            // 好像这个判断怎么也进不去啊?
-            // 因为调用run()方法前,会判断当前任务是否到了执行的时间
+            // 好像这个判断怎么也进不去啊,因为调用run()方法前,会判断当前任务是否到了执行的时间
+            // 原因:保持ScheduledFutureTask功能的完整性,即使没有外部的判定条件,也能正常的执行周期性任务
             if (delayNanos() > 0L) {
                 // Not yet expired, need to add or remove from queue
                 if (isCancelled()) {

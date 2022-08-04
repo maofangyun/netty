@@ -366,7 +366,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     /**
      * Poll all tasks from the task queue and run them via {@link Runnable#run()} method.
-     *
+     * 当且仅当至少运行一项任务成功时才为true
      * @return {@code true} if and only if at least one task was run
      */
     protected boolean runAllTasks() {
@@ -770,9 +770,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         cancelScheduledTasks();
 
         if (gracefulShutdownStartTime == 0) {
+            // 标识优雅关闭的开始时间
             gracefulShutdownStartTime = ScheduledFutureTask.nanoTime();
         }
-
+        // 运行全部任务(关闭之前,保证未被取消的任务能执行)
+        // 执行所有关闭的钩子函数
         if (runAllTasks() || runShutdownHooks()) {
             if (isShutdown()) {
                 // Executor shut down - no new tasks anymore.
@@ -782,19 +784,27 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             // There were tasks in the queue. Wait a little bit more until no tasks are queued for the quiet period or
             // terminate if the quiet period is 0.
             // See https://github.com/netty/netty/issues/4241
+            // 当优雅关闭平静期等于0时,不管队列中是否有任务待执行,直接返回true,表示可以关闭线程池
             if (gracefulShutdownQuietPeriod == 0) {
                 return true;
             }
+            // 添加WAKEUP_TASK任务的目的:
+            // 当线程需要关闭时,如果线程在take()方法上阻塞,就需要添加一个标记任务WAKEUP_TASK到任务队列,让线程从take()返回,从而正确关闭线程.
             taskQueue.offer(WAKEUP_TASK);
             return false;
         }
 
         final long nanoTime = ScheduledFutureTask.nanoTime();
 
+        // 判断线程池是否关闭 或者 关闭线程池操作是否超时(gracefulShutdownTimeout默认是15s)
         if (isShutdown() || nanoTime - gracefulShutdownStartTime > gracefulShutdownTimeout) {
             return true;
         }
 
+        // 代码能执行到这一步,说明在前面调用runAllTasks()方法时,没有一个任务被执行,即任务队列中无任务
+        // 判断:  最后一次执行任务的时间 - 距离当前时间 <= 优雅关闭的平静时间(默认2s)
+        // 意义:  若小于2s,表示当前关闭线程池的操作不合适,因为2s的时间窗口,还有任务在提交并执行
+        //       若大于2s,表示在2s的时间窗口,没有任务提交并执行,netty认为符合关闭的条件(但其实并不太准确,因为可能有任务在时间窗口内提交了,但没有执行)
         if (nanoTime - lastExecutionTime <= gracefulShutdownQuietPeriod) {
             // Check if any tasks were added to the queue every 100ms.
             // TODO: Change the behavior of takeTask() so that it returns on timeout.
