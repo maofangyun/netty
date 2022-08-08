@@ -150,7 +150,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
-                // TODO
+                // 添加ServerBootstrapAcceptor,用于设置新的连接NioSocketChannel的各种参数
                 ch.eventLoop().execute(() -> pipeline.addLast(new ServerBootstrapAcceptor(
                         ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs)));
             }

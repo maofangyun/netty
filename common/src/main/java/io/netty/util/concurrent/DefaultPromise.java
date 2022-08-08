@@ -243,14 +243,15 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
         if (Thread.interrupted()) {
             throw new InterruptedException(toString());
         }
-
+        // 死锁检测
         checkDeadLock();
 
         synchronized (this) {
             while (!isDone()) {
                 incWaiters();
                 try {
-                    // TODO 搞不懂?
+                    // 为啥不会阻塞?
+                    // checkNotifyWaiters()会唤醒,只是在不同的线程,造成没有阻塞的假象
                     wait();
                 } finally {
                     decWaiters();
@@ -460,6 +461,10 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
 
     protected void checkDeadLock() {
         EventExecutor e = executor();
+        // e.inEventLoop()表示当前线程和任务的执行线程是同一个,
+        // 由于checkDeadLock()都是在线程调用DefaultPromise类的await()方法时,才会进行调用,检测是否死锁.
+        // 若没有e.inEventLoop()的判断,此线程将进入等待的阻塞态,导致该线程的所有任务无法执行,从而线程无法在任务完成之后调用notify()方法唤醒自己,
+        // 因此产生了一个死锁
         if (e != null && e.inEventLoop()) {
             throw new BlockingOperationException(toString());
         }

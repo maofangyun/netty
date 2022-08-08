@@ -68,4 +68,10 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
         cause.printStackTrace();
         ctx.close();
     }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
+        ctx.fireUserEventTriggered(evt);
+    }
+
 }

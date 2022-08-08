@@ -789,7 +789,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 return true;
             }
             // 添加WAKEUP_TASK任务的目的:
-            // 当线程需要关闭时,如果线程在take()方法上阻塞,就需要添加一个标记任务WAKEUP_TASK到任务队列,让线程从take()返回,从而正确关闭线程.
+            // 当线程需要关闭时,如果线程在take()方法上阻塞,就需要添加一个标记任务WAKEUP_TASK到任务队列,让线程从take()返回,从而正确关闭线程
             taskQueue.offer(WAKEUP_TASK);
             return false;
         }
